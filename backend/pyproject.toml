@@ -1,0 +1,9 @@
+[project]
+name = "sentinel-memory-backend"
+version = "1.0.0"
+description = "Sentinel Memory - AI-Powered SOC Analyst with Hindsight Long-Term Institutional Memory"
+readme = "README.md"
+requires-python = ">=3.10"
+
+[tool.vercel]
+entrypoint = "app.main:app"
