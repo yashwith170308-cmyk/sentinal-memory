@@ -10,7 +10,17 @@ import {
   ComparisonScenario
 } from '../types';
 
-const API_BASE = '/api';
+const rawApiUrl = (import.meta.env.VITE_API_URL || '').trim();
+let targetBase = rawApiUrl;
+if (!targetBase && typeof window !== 'undefined' && window.location.hostname.endsWith('vercel.app')) {
+  // Direct calls to the deployed backend when running on any Vercel domain
+  if (!window.location.hostname.includes('backend-phi-ten-29')) {
+    targetBase = 'https://backend-phi-ten-29.vercel.app/api';
+  }
+}
+const API_BASE = targetBase
+  ? (targetBase.endsWith('/api') ? targetBase : `${targetBase.replace(/\/+$/, '')}/api`)
+  : '/api';
 
 export const api = {
   async getHealth() {
@@ -32,8 +42,17 @@ export const api = {
       body: JSON.stringify(alert)
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: 'Investigation failed' }));
-      throw new Error(err.detail || 'Investigation failed');
+      let message = 'Investigation failed';
+      try {
+        const err = await res.json();
+        message = err.detail || err.message || message;
+      } catch {
+        const text = await res.text().catch(() => '');
+        if (text) {
+          message = text.length > 150 ? `${text.slice(0, 150)}...` : text;
+        }
+      }
+      throw new Error(message);
     }
     return res.json();
   },

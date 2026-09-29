@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Dict, Any
 from backend.app.schemas.alert import AlertInput, DemoAlert
@@ -6,6 +7,8 @@ from backend.app.schemas.feedback import FeedbackInput, FeedbackResponse
 from backend.app.services.investigation_service import investigation_service
 from backend.app.services.feedback_service import feedback_service
 from backend.app.models.database import SessionLocal, AlertRecord, InvestigationRecord, FeedbackRecord
+
+logger = logging.getLogger("sentinel.routes.alerts")
 
 router = APIRouter(prefix="/alerts", tags=["Alerts"])
 
@@ -106,6 +109,7 @@ def investigate_alert(alert: AlertInput):
     try:
         return investigation_service.investigate(alert)
     except Exception as e:
+        logger.exception(f"Server-side error in investigate_alert for {alert.alert_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Investigation failed: {str(e)}")
 
 @router.post("/feedback", response_model=FeedbackResponse)
@@ -116,4 +120,5 @@ def submit_feedback(feedback: FeedbackInput):
     try:
         return feedback_service.process_feedback(feedback)
     except Exception as e:
+        logger.exception(f"Server-side error in submit_feedback for alert {feedback.alert_id}: {e}")
         raise HTTPException(status_code=500, detail=f"Feedback submission failed: {str(e)}")

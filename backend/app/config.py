@@ -5,6 +5,17 @@ from typing import Optional
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
+def _get_default_database_url() -> str:
+    env_url = os.environ.get("DATABASE_URL")
+    is_serverless = bool(os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
+    if env_url:
+        if is_serverless and env_url.startswith("sqlite:///") and not env_url.startswith("sqlite:////tmp/"):
+            return "sqlite:////tmp/sentinel.db"
+        return env_url
+    if is_serverless:
+        return "sqlite:////tmp/sentinel.db"
+    return "sqlite:///./sentinel.db"
+
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Sentinel Memory"
     VERSION: str = "1.0.0"
@@ -20,7 +31,7 @@ class Settings(BaseSettings):
     LLM_MODEL: str = "llama-3.3-70b-versatile"
 
     # Database
-    DATABASE_URL: str = "sqlite:///./sentinel.db"
+    DATABASE_URL: str = _get_default_database_url()
 
     # Frontend
     FRONTEND_URL: str = "http://localhost:5173"

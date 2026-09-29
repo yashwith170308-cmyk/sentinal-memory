@@ -2,7 +2,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 
 class HistoricalMatch(BaseModel):
-    memory_id: str = Field(..., description="ID of recalled Hindsight memory unit")
+    memory_id: str = Field(default="", description="ID of recalled Hindsight memory unit")
     incident_id: str = Field(..., description="Referenced incident e.g. INC-0081")
     title: Optional[str] = Field(None, description="Short title of the incident")
     similarity_reason: str = Field(..., description="Why this memory was recalled and how it maps to current alert")

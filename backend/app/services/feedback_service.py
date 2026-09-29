@@ -10,30 +10,40 @@ from backend.app.models.database import SessionLocal, FeedbackRecord, AlertRecor
 
 logger = logging.getLogger("sentinel.feedback")
 
+IN_MEMORY_FEEDBACKS: Dict[str, Any] = {}
+
 class FeedbackService:
+    def get_recent_feedback(self, alert_id: str = None):
+        if alert_id:
+            return IN_MEMORY_FEEDBACKS.get(alert_id)
+        return list(IN_MEMORY_FEEDBACKS.values())
+
     def process_feedback(self, feedback: FeedbackInput) -> FeedbackResponse:
         """
         Processes analyst feedback:
-        1. Retrieves alert details from DB to contextualize the narrative.
+        1. Retrieves alert details from DB or memory to contextualize the narrative.
         2. Constructs a rich narrative for Hindsight retain.
         3. Calls hindsight_service.retain(...) to persist feedback into organizational memory.
-        4. Saves feedback record to local DB.
+        4. Saves feedback record to local DB and in-memory cache.
         """
         feedback_id = f"FB-{uuid.uuid4().hex[:8].upper()}"
         now_iso = datetime.now(timezone.utc).isoformat()
 
         alert_data = {}
-        with SessionLocal() as db:
-            alert_rec = db.query(AlertRecord).filter(AlertRecord.id == feedback.alert_id).first()
-            if alert_rec:
-                alert_data = {
-                    "host": alert_rec.host,
-                    "process": alert_rec.process,
-                    "parent_process": alert_rec.parent_process,
-                    "command": alert_rec.command,
-                    "severity": alert_rec.severity,
-                    "destination": alert_rec.destination
-                }
+        try:
+            with SessionLocal() as db:
+                alert_rec = db.query(AlertRecord).filter(AlertRecord.id == feedback.alert_id).first()
+                if alert_rec:
+                    alert_data = {
+                        "host": alert_rec.host,
+                        "process": alert_rec.process,
+                        "parent_process": alert_rec.parent_process,
+                        "command": alert_rec.command,
+                        "severity": alert_rec.severity,
+                        "destination": alert_rec.destination
+                    }
+        except Exception as db_err:
+            logger.warning(f"Could not read alert record from DB: {db_err}")
 
         # Build natural language narrative for Hindsight retention
         narrative = (
@@ -78,6 +88,19 @@ class FeedbackService:
 
         retained = hindsight_result.get("success", False)
         op_id = hindsight_result.get("operation_id")
+
+        # Save to in-memory session cache for instant recall in Demo Mode
+        IN_MEMORY_FEEDBACKS[feedback.alert_id] = {
+            "feedback_id": feedback_id,
+            "alert_id": feedback.alert_id,
+            "verdict": feedback.verdict,
+            "comments": feedback.comments,
+            "analyst_name": feedback.analyst_name,
+            "action_taken": feedback.action_taken,
+            "retained_in_hindsight": retained,
+            "hindsight_operation_id": str(op_id) if op_id else None,
+            "timestamp": now_iso
+        }
 
         # Persist feedback locally
         try:
