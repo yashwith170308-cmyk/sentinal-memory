@@ -14,11 +14,15 @@ def utc_now():
     return datetime.now(timezone.utc)
 
 def resolve_database_url() -> str:
-    url = settings.DATABASE_URL
-    is_serverless = bool(os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
-    if is_serverless and url.startswith("sqlite:///") and not url.startswith("sqlite:////tmp/"):
-        return "sqlite:////tmp/sentinel.db"
-    return url
+    is_serverless = bool(
+        os.environ.get("VERCEL") or 
+        os.environ.get("VERCEL_ENV") or
+        os.environ.get("AWS_LAMBDA_FUNCTION_NAME") or
+        os.environ.get("LAMBDA_TASK_ROOT")
+    )
+    if is_serverless:
+        return "sqlite:///:memory:?check_same_thread=False"
+    return settings.DATABASE_URL
 
 DATABASE_URL = resolve_database_url()
 

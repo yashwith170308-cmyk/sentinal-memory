@@ -6,14 +6,17 @@ from typing import Optional
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 def _get_default_database_url() -> str:
-    env_url = os.environ.get("DATABASE_URL")
-    is_serverless = bool(os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"))
-    if env_url:
-        if is_serverless and env_url.startswith("sqlite:///") and not env_url.startswith("sqlite:////tmp/"):
-            return "sqlite:////tmp/sentinel.db"
-        return env_url
+    is_serverless = bool(
+        os.environ.get("VERCEL") or 
+        os.environ.get("VERCEL_ENV") or
+        os.environ.get("AWS_LAMBDA_FUNCTION_NAME") or
+        os.environ.get("LAMBDA_TASK_ROOT")
+    )
     if is_serverless:
-        return "sqlite:////tmp/sentinel.db"
+        return "sqlite:///:memory:?check_same_thread=False"
+    env_url = os.environ.get("DATABASE_URL")
+    if env_url:
+        return env_url
     return "sqlite:///./sentinel.db"
 
 class Settings(BaseSettings):
